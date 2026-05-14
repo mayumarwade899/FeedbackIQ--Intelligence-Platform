@@ -359,23 +359,26 @@ ingestion_runs        -- Scheduled job execution history
 
 ---
 
-## 🚀 Production Deployment Checklist
+# 🚀 FeedbackIQ — UI Preview
 
-- [x] Thread-isolated scheduler (ingestion doesn't block API)
-- [x] API rate limiting (SlowAPI — 100 req/min/IP)
-- [x] Telegram notifications for scheduler lifecycle
-- [x] Auto-stop scheduler after configurable TTL
-- [x] Heuristic fallback when LLM is unavailable
-- [x] Content moderation with toxicity thresholds
-- [x] GZip compression middleware
-- [ ] Set a strong `SECRET_KEY`
-- [ ] Use a managed PostgreSQL (e.g., RDS, Supabase, Neon)
-- [ ] Set `DEBUG=false`
-- [ ] Configure `CORS_ORIGINS` to your actual frontend domain
-- [ ] Enable LangSmith tracing for agent observability
-- [ ] Set up log aggregation (Datadog, CloudWatch, etc.)
-- [ ] Add authentication (OAuth2/JWT) for the dashboard
+<img width="1362" height="594" alt="dashboard" src="https://github.com/user-attachments/assets/8f815f51-6576-4a46-aaa3-542405ffd344" />
+<br/><br/>
+<img width="1361" height="590" alt="dashboard2" src="https://github.com/user-attachments/assets/05d15ea1-1649-41a6-b998-a8d5e71718d2" />
+<br/><br/>
+<img width="1364" height="595" alt="feedback_page" src="https://github.com/user-attachments/assets/eaaf32e1-47d8-4883-a676-2792d906fd67" />
+<br/><br/>
+<img width="1337" height="595" alt="feedback_page2" src="https://github.com/user-attachments/assets/2418629d-c6a5-4c8a-bf81-a594090f594a" />
+<br/><br/>
+<img width="1365" height="591" alt="ticket" src="https://github.com/user-attachments/assets/89c1ec8a-75b6-442f-8ab0-9083b24ee9cf" />
+<br/><br/>
+<img width="1365" height="591" alt="analytics" src="https://github.com/user-attachments/assets/fa4720d4-3931-46ff-aa71-0407414cfac3" />
+<br/><br/>
+<img width="1365" height="597" alt="monitoring" src="https://github.com/user-attachments/assets/2c7ecf16-8660-48dc-b191-b7046b8b6728" />
+<br/><br/>
+<img width="1170" height="2416" alt="telegram_bot_notification" src="https://github.com/user-attachments/assets/4141ea66-4257-427f-92e4-55e343ff0dc9" />
 
----
-
-
+<div align="center">
+  <strong>Built by</strong> <a href="https://github.com/mayumarwade899">Mayur</a>
+  <br/>
+  <em>Portfolio project showcasing production-grade Multi-Agent System</em>
+</div>
