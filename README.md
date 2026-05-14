@@ -359,25 +359,6 @@ ingestion_runs        -- Scheduled job execution history
 
 ---
 
-## 🚀 Production Deployment Checklist
-
-- [x] Thread-isolated scheduler (ingestion doesn't block API)
-- [x] API rate limiting (SlowAPI — 100 req/min/IP)
-- [x] Telegram notifications for scheduler lifecycle
-- [x] Auto-stop scheduler after configurable TTL
-- [x] Heuristic fallback when LLM is unavailable
-- [x] Content moderation with toxicity thresholds
-- [x] GZip compression middleware
-- [ ] Set a strong `SECRET_KEY`
-- [ ] Use a managed PostgreSQL (e.g., RDS, Supabase, Neon)
-- [ ] Set `DEBUG=false`
-- [ ] Configure `CORS_ORIGINS` to your actual frontend domain
-- [ ] Enable LangSmith tracing for agent observability
-- [ ] Set up log aggregation (Datadog, CloudWatch, etc.)
-- [ ] Add authentication (OAuth2/JWT) for the dashboard
-
----
-
 # 🚀 FeedbackIQ — UI Preview
 
 <img width="1362" height="594" alt="dashboard" src="https://github.com/user-attachments/assets/8f815f51-6576-4a46-aaa3-542405ffd344" />
@@ -396,4 +377,8 @@ ingestion_runs        -- Scheduled job execution history
 <br/><br/>
 <img width="1170" height="2416" alt="telegram_bot_notification" src="https://github.com/user-attachments/assets/4141ea66-4257-427f-92e4-55e343ff0dc9" />
 
-
+<div align="center">
+  <strong>Built by</strong> <a href="https://github.com/mayumarwade899">Mayur</a>
+  <br/>
+  <em>Portfolio project showcasing production-grade Multi-Agent System</em>
+</div>
