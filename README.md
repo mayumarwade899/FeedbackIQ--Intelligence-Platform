@@ -1,6 +1,6 @@
 # 🧠 FeedbackIQ — Production-Grade Multi-Agent Feedback Intelligence Platform
 
-> A continuously running, AI-powered internal platform that ingests user feedback from multiple external sources, processes it through a specialized multi-agent pipeline, enables human-in-the-loop review, generates structured tickets, and delivers real-time analytics and monitoring.
+> A continuously running, AI-powered internal platform that ingests user feedback from multiple external sources, processes it through a specialized multi-agent pipeline, enables human-in-the-loop review, generates structured tickets, and delivers real-time analytics, monitoring, and Telegram notifications.
 
 ---
 
@@ -9,12 +9,12 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         EXTERNAL SOURCES                                     │
-│   GitHub Issues    Reddit Posts    Manual API Input    App Reviews           │
+│   GitHub Issues    Reddit Posts    Manual API Input    Google Play Reviews   │
 └──────────────────────────────┬──────────────────────────────────────────────┘
                                │
                     ┌──────────▼──────────┐
-                    │   Ingestion Agent   │  ← Scheduled every N minutes
-                    │  (APScheduler)      │     Deduplication by external_id
+                    │   Ingestion Agent   │  ← Thread-isolated BackgroundScheduler
+                    │  (APScheduler)      │     Every 15 min
                     └──────────┬──────────┘
                                │  Writes to raw_feedback table
                                ▼
@@ -22,6 +22,11 @@
 │                    LANGGRAPH MULTI-AGENT PIPELINE                           │
 │                                                                             │
 │   ┌─────────────────┐                                                       │
+│   │  Translation    │ → language detection, English translation             │
+│   │     Agent       │                                                       │
+│   └────────┬────────┘                                                       │
+│            │                                                                │
+│   ┌────────▼────────┐                                                       │
 │   │  Classification │ → category, priority, confidence, rationale           │
 │   │     Agent       │                                                       │
 │   └────────┬────────┘                                                       │
@@ -59,10 +64,16 @@
               ┌──────────────────┼──────────────────────┐
               ▼                  ▼                       ▼
     ┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐
-    │  FastAPI     │   │  React Frontend  │   │  LangSmith       │
-    │  REST API    │   │  Dashboard       │   │  Observability   │
-    │  /api/docs   │   │  localhost:3000  │   │  Agent Tracing   │
+    │  FastAPI     │   │  React Frontend  │   │  Telegram Bot    │
+    │  REST API    │   │  Dashboard       │   │  Notifications   │
+    │  /api/docs   │   │  localhost:3000  │   │  Success/Failure │
     └──────────────┘   └──────────────────┘   └──────────────────┘
+              │                                        │
+    ┌─────────▼─────────┐               ┌──────────────▼──────┐
+    │  SlowAPI Rate     │               │  LangSmith          │
+    │  Limiting         │               │  Observability      │
+    │  100 req/min/IP   │               │  Agent Tracing      │
+    └───────────────────┘               └─────────────────────┘
 ```
 
 ---
@@ -71,7 +82,8 @@
 
 | Agent | Input | Output | LLM Used |
 |---|---|---|---|
-| **IngestionAgent** | GitHub/Reddit/Manual APIs | `raw_feedback` DB records | No |
+| **IngestionAgent** | GitHub/Reddit/Google Play/Manual APIs | `raw_feedback` DB records | No |
+| **TranslationAgent** | Feedback text | language, is_english, translated_text | Gemini |
 | **ClassificationAgent** | Feedback text | category, priority, confidence | Gemini |
 | **SentimentAgent** | Feedback text | sentiment, score, emotion_tags | Gemini |
 | **DuplicateDetectionAgent** | Feedback embedding | is_duplicate, similarity_score | No (vector math) |
@@ -93,51 +105,23 @@ All agents inherit from `BaseAgent` which provides:
 ```
 feedback-platform/
 ├── backend/
-│   ├── main.py                          # FastAPI app with lifespan
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   ├── .env.example
-│   ├── alembic/                         # DB migrations
-│   │   └── env.py
-│   ├── agents/
-│   │   ├── base.py                      # BaseAgent with retry + monitoring
-│   │   ├── llm_client.py               # Gemini wrapper with JSON parsing
-│   │   ├── orchestrator.py             # LangGraph StateGraph pipeline
-│   │   ├── classification_agent.py
-│   │   ├── sentiment_agent.py
-│   │   ├── duplicate_detection_agent.py
-│   │   ├── insights_agent.py
-│   │   ├── ticket_generation_agent.py
-│   │   └── ingestion_agent.py          # GitHub, Reddit, Manual sources
-│   ├── api/
-│   │   └── routes/
-│   │       ├── feedback.py             # /api/feedback/*
-│   │       ├── tickets.py              # /api/tickets/*
-│   │       ├── analytics.py            # /api/analytics/*
-│   │       ├── monitoring.py           # /api/monitoring/*
-│   │       ├── agents.py               # /api/agents/*
-│   │       └── ingestion.py            # /api/ingestion/*
-│   ├── core/
-│   │   ├── config.py                   # Pydantic Settings
-│   │   ├── schemas.py                  # API schemas + AgentState TypedDict
-│   │   └── logging_config.py
-│   ├── db/
-│   │   ├── database.py                 # Async SQLAlchemy engine
-│   │   └── models.py                   # ORM models
+│   ├── main.py                  # FastAPI entry + rate limiting (SlowAPI)
+│   ├── agents/                  # Multi-agent AI pipeline (8 agents)
+│   ├── api/routes/              # REST endpoints (feedback, tickets, analytics, etc.)
+│   ├── core/                    # Config, schemas, logging
+│   ├── db/                      # Async SQLAlchemy models + engine
 │   └── workers/
-│       └── scheduler.py                # APScheduler background jobs
+│       ├── scheduler.py         # Thread-isolated BackgroundScheduler
+│       └── telegram.py          # Telegram Bot notification service
 │
-├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── src/
-│       ├── main.jsx
-│       └── App.jsx                     # Complete single-file React dashboard
+├── frontend/src/
+│   ├── pages/                   # Overview, Feedback, Tickets, Analytics
+│   ├── components/              # ui, charts, feedback, tickets, pipeline, monitoring
+│   ├── layout/                  # Sidebar, TopBar (React Router)
+│   ├── hooks/                   # useData (global polling hook)
+│   └── utils/                   # Constants, date formatting, toast
 │
-└── docker-compose.yml
+└── docker-compose.yml           # PostgreSQL + Redis + Backend + Frontend
 ```
 
 ---
@@ -209,6 +193,7 @@ npm run dev                        # Opens on http://localhost:3000
 |---|---|---|
 | `DATABASE_URL` | ✅ | PostgreSQL async connection string |
 | `GOOGLE_API_KEY` | ✅ | Gemini API key for agent LLM calls |
+| `SECRET_KEY` | ✅ | Application secret key |
 | `GEMINI_MODEL` | ❌ | Model name (default: `gemini-2.0-flash`) |
 | `LANGCHAIN_API_KEY` | ❌ | LangSmith key for agent tracing |
 | `LANGCHAIN_TRACING_V2` | ❌ | Enable LangSmith tracing (`true`/`false`) |
@@ -217,9 +202,14 @@ npm run dev                        # Opens on http://localhost:3000
 | `GITHUB_REPO_NAME` | ❌ | GitHub repository name |
 | `REDDIT_CLIENT_ID` | ❌ | Reddit app client ID |
 | `REDDIT_CLIENT_SECRET` | ❌ | Reddit app client secret |
+| `GOOGLE_PLAY_APP_ID` | ❌ | Google Play app to scrape reviews from |
+| `GOOGLE_PLAY_REVIEW_COUNT` | ❌ | Number of reviews to fetch per cycle (default: `200`) |
 | `INGESTION_ENABLED` | ❌ | Enable scheduled ingestion (default: `true`) |
 | `INGESTION_INTERVAL_MINUTES` | ❌ | Polling interval (default: `15`) |
-| `SECRET_KEY` | ✅ | Application secret key |
+| `MAX_INGESTION_BATCH` | ❌ | Max feedbacks to AI-process per cycle (default: `200`) |
+| `SCHEDULER_MAX_RUNTIME_MINUTES` | ❌ | Auto-stop scheduler after N minutes (default: `120`, `0` = forever) |
+| `TELEGRAM_BOT_TOKEN` | ❌ | Telegram Bot API token for notifications |
+| `TELEGRAM_CHAT_ID` | ❌ | Telegram chat ID to receive notifications |
 
 ---
 
@@ -241,14 +231,26 @@ npm run dev                        # Opens on http://localhost:3000
 | `GET` | `/api/monitoring/metrics` | Agent performance metrics |
 | `GET` | `/api/monitoring/agent-runs` | Agent execution log |
 | `GET` | `/api/agents` | List all agents |
-| `POST` | `/api/ingestion/trigger` | Manually trigger ingestion |
+| `POST` | `/api/ingestion/trigger` | Manually trigger full ingestion cycle |
+| `POST` | `/api/ingestion/process-pending` | Manually trigger AI processing |
+| `POST` | `/api/ingestion/trigger-google-play` | Manually trigger Google Play ingestion |
 | `GET` | `/api/health` | Health check |
+
+> **Rate Limiting**: All endpoints are rate-limited to **100 requests/minute per IP** via SlowAPI.
 
 Full interactive docs: **http://localhost:8000/api/docs**
 
 ---
 
-## 🖥 Frontend Dashboard Pages
+## 🖥 Frontend Dashboard
+
+### Tech Stack
+- **React 18** with React Router for multi-page navigation
+- **Tailwind CSS v4** with custom design tokens (dark theme)
+- **Vite** for fast development and HMR
+- **IBM Plex Sans** + **JetBrains Mono** typography
+
+### Pages
 
 | Page | Features |
 |---|---|
@@ -256,23 +258,60 @@ Full interactive docs: **http://localhost:8000/api/docs**
 | **Feedback** | Full processed feedback table with filters, detail drawer, human review workflow |
 | **Tickets** | Kanban-style ticket board grouped by priority, inline status editing, GitHub sync |
 | **Analytics** | Category trend sparklines, top issues, duplicate groups |
-| **Monitoring** | Agent success rates, latency heatmap, recent agent run logs |
+
+### Component Architecture
+```
+components/
+├── ui/          → Card, Btn, Badge, Spinner, MetricCard, Pagination, FilterSelect
+├── charts/      → Sparkline data visualization
+├── feedback/    → FeedbackRow, FeedbackDrawer, PendingFeedbackRow, SubmitModal
+├── tickets/     → TicketCard with status management
+├── pipeline/    → Agent pipeline visualization
+├── monitoring/  → MonitoringPanel, RecentAgentRunsTable
+└── ingestion/   → IngestionSourcesPanel with live polling
+```
+
+---
+
+## ⏰ Automated Scheduling & Notifications
+
+### Thread-Isolated Background Scheduler
+The ingestion scheduler uses `APScheduler BackgroundScheduler` running in a **dedicated thread pool**, completely isolated from FastAPI's event loop. This ensures:
+
+- ✅ **No missed jobs** — API traffic never delays scheduled ingestion
+- ✅ **No overlapping runs** — `max_instances=1` prevents concurrent cycles
+- ✅ **Coalesced misfires** — backed-up runs merge into a single execution
+- ✅ **Automatic TTL** — scheduler auto-stops after 2 hours (configurable)
+- ✅ **Immediate first run** — ingestion triggers on startup, then every 15 minutes
+
+### Telegram Notifications
+Real-time Telegram alerts for every scheduler event:
+
+| Event | Notification |
+|---|---|
+| Scheduler starts | 🚀 Interval, TTL, timestamp |
+| Cycle succeeds (new data) | ✅ Fetched, new, processed counts, duration |
+| Cycle completes (no new data) | ℹ️ "No New Reviews available" with count checked |
+| Cycle fails | ❌ Error message, source, retry info |
+| Scheduler stops | 🛑 Total cycles completed, stop reason |
 
 ---
 
 ## 🔄 Data Flow (End-to-End)
 
 ```
-1. INGEST     External source → RawFeedback (PostgreSQL)
-2. CLASSIFY   Gemini LLM → category, priority, confidence
-3. SENTIMENT  Gemini LLM → sentiment score + emotion tags  
-4. DEDUP      TF-IDF cosine similarity → is_duplicate flag
-5. INSIGHTS   Gemini LLM → impact summary + resolution
-6. TICKET     Gemini LLM → structured ticket with labels
-7. PERSIST    ProcessedFeedback + Ticket + AgentRuns saved
-8. REVIEW     Human analyst approves/rejects via dashboard
-9. EXPORT     Approved tickets optionally pushed to GitHub Issues
-10. ANALYZE   Analytics derived from PostgreSQL aggregations
+ 1. INGEST     External source → RawFeedback (PostgreSQL)
+ 2. TRANSLATE  Language detection → English translation if needed
+ 3. CLASSIFY   Gemini LLM → category, priority, confidence
+ 4. SENTIMENT  Gemini LLM → sentiment score + emotion tags
+ 5. DEDUP      TF-IDF cosine similarity → is_duplicate flag
+ 6. INSIGHTS   Gemini LLM → impact summary + resolution
+ 7. TICKET     Gemini LLM → structured ticket with labels
+ 8. PERSIST    ProcessedFeedback + Ticket + AgentRuns saved
+ 9. NOTIFY     Telegram Bot → cycle success/failure alert
+10. REVIEW     Human analyst approves/rejects via dashboard
+11. EXPORT     Approved tickets optionally pushed to GitHub Issues
+12. ANALYZE    Analytics derived from PostgreSQL aggregations
 ```
 
 ---
@@ -289,6 +328,19 @@ ingestion_runs        -- Scheduled job execution history
 
 ---
 
+## 🛡️ Security & Rate Limiting
+
+| Feature | Implementation |
+|---|---|
+| **API Rate Limiting** | SlowAPI — 100 requests/minute per IP |
+| **CORS Protection** | Whitelisted origins only |
+| **GZip Compression** | Responses > 1KB auto-compressed |
+| **Input Validation** | Pydantic schema validation on all endpoints |
+| **Toxicity Moderation** | Configurable soft/extreme thresholds for content filtering |
+| **Environment Secrets** | `.env` file with Pydantic Settings validation |
+
+---
+
 ## 🔭 Observability
 
 ### LangSmith Integration
@@ -301,33 +353,29 @@ ingestion_runs        -- Scheduled job execution history
 - Processing throughput, duplicate rate → derived from DB queries
 - All metrics exposed via `/api/monitoring/metrics`
 
+### Telegram Alerts
+- Real-time push notifications for every ingestion cycle
+- Zero-configuration — just add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
+
 ---
 
 ## 🚀 Production Deployment Checklist
 
+- [x] Thread-isolated scheduler (ingestion doesn't block API)
+- [x] API rate limiting (SlowAPI — 100 req/min/IP)
+- [x] Telegram notifications for scheduler lifecycle
+- [x] Auto-stop scheduler after configurable TTL
+- [x] Heuristic fallback when LLM is unavailable
+- [x] Content moderation with toxicity thresholds
+- [x] GZip compression middleware
 - [ ] Set a strong `SECRET_KEY`
 - [ ] Use a managed PostgreSQL (e.g., RDS, Supabase, Neon)
 - [ ] Set `DEBUG=false`
 - [ ] Configure `CORS_ORIGINS` to your actual frontend domain
 - [ ] Enable LangSmith tracing for agent observability
 - [ ] Set up log aggregation (Datadog, CloudWatch, etc.)
-- [ ] Add rate limiting to `/api/feedback/submit`
-- [ ] Configure `INGESTION_INTERVAL_MINUTES` based on load
 - [ ] Add authentication (OAuth2/JWT) for the dashboard
 
 ---
 
-## 🗺 Roadmap
 
-- [ ] **Memory Agent**: Summarize recurring feedback themes into long-term context
-- [ ] **Webhook support**: Push ticket events to Slack / PagerDuty
-- [ ] **Auth**: JWT-based login for reviewers
-- [ ] **Batch ML retraining**: Fine-tune classification based on human corrections
-- [ ] **More sources**: Zendesk, Intercom, App Store reviews API
-- [ ] **Export**: CSV / PDF report generation
-
----
-
-## 👤 Author
-
-Built as a production-grade reference architecture for multi-agent AI systems.
