@@ -34,18 +34,15 @@ async def lifespan(app: FastAPI):
     """Application startup and shutdown lifecycle."""
     logger.info("🚀 Starting Feedback Intelligence Platform v2.0")
 
-    # Create all DB tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("✅ Database tables initialized")
 
-    # Start background scheduler
     await start_scheduler()
     logger.info("✅ Background scheduler started")
 
     yield
 
-    # Shutdown
     await stop_scheduler()
     logger.info("🛑 Feedback Intelligence Platform shut down")
 
@@ -72,7 +69,6 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Routers
 app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
 app.include_router(tickets.router, prefix="/api/tickets", tags=["Tickets"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])

@@ -17,7 +17,6 @@ export default function IngestionSourcesPanel({ onTrigger }) {
   const [triggeringGP, setTriggeringGP] = useState(false);
   const pendingAtStartRef = useRef(0);
 
-  // Poll the processed feedback list for real completion after Fetch Now.
   useEffect(() => {
     if (!triggeringGP) return;
 

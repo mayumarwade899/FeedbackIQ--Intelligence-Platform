@@ -134,7 +134,6 @@ async def _run_ingestion_cycle():
                 source=source,
             )
 
-    # Process all pending feedback through AI pipeline
     processed = 0
     try:
         processed = await process_pending_feedback(
@@ -156,7 +155,6 @@ async def _run_ingestion_cycle():
         cycle, elapsed, total_fetched, total_new, processed,
     )
 
-    # Send appropriate notification based on results
     if not has_error:
         if total_new > 0 or processed > 0:
             await notify_cycle_success(
@@ -172,7 +170,6 @@ async def _run_ingestion_cycle():
                 cycle_number=cycle,
             )
 
-    # ── Check TTL: auto-stop if runtime exceeded ──
     await _check_ttl_and_stop()
 
 
@@ -182,7 +179,7 @@ async def _check_ttl_and_stop():
 
     ttl_minutes = settings.SCHEDULER_MAX_RUNTIME_MINUTES
     if ttl_minutes <= 0 or _start_time is None:
-        return  # 0 = run forever
+        return
 
     elapsed_minutes = (time.time() - _start_time) / 60
     remaining = ttl_minutes - elapsed_minutes
@@ -235,23 +232,21 @@ async def start_scheduler():
     _scheduler = BackgroundScheduler(
         timezone="UTC",
         job_defaults={
-            "coalesce": True,           # Merge missed runs into one
-            "max_instances": 1,         # Prevent overlapping executions
-            "misfire_grace_time": None,  # Never skip a job
+            "coalesce": True,   
+            "max_instances": 1, 
+            "misfire_grace_time": None,
         },
     )
 
-    # Primary recurring job: ingestion + processing (runs in thread pool)
     _scheduler.add_job(
         _ingestion_job,
         trigger=IntervalTrigger(minutes=settings.INGESTION_INTERVAL_MINUTES),
         id="ingestion_cycle",
         replace_existing=True,
-        max_instances=1,                      # No overlapping ingestion runs
-        next_run_time=datetime.utcnow(),  # Run immediately on startup
+        max_instances=1,
+        next_run_time=datetime.utcnow(),
     )
 
-    # TTL watchdog: if configured, add a one-shot job to force-stop
     ttl = settings.SCHEDULER_MAX_RUNTIME_MINUTES
     if ttl > 0:
         stop_at = datetime.utcnow() + timedelta(minutes=ttl)
@@ -270,7 +265,6 @@ async def start_scheduler():
         f"{ttl} minutes" if ttl > 0 else "unlimited",
     )
 
-    # Send Telegram notification
     from workers.telegram import notify_scheduler_started
     await notify_scheduler_started()
 
