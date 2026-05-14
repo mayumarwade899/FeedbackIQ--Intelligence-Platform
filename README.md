@@ -378,7 +378,7 @@ ingestion_runs        -- Scheduled job execution history
 
 ---
 
-🚀 FeedbackIQ — UI Preview
+# 🚀 FeedbackIQ — UI Preview
 
 <img width="1362" height="594" alt="dashboard" src="https://github.com/user-attachments/assets/8f815f51-6576-4a46-aaa3-542405ffd344" />
 <br/><br/>
