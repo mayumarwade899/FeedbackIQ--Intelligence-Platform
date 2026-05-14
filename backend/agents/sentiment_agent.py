@@ -44,7 +44,6 @@ Rules:
 POSITIVE_WORDS = ["love", "great", "amazing", "excellent", "perfect", "fantastic", "helpful", "awesome", "best"]
 NEGATIVE_WORDS = ["crash", "broken", "terrible", "awful", "hate", "worst", "useless", "poor", "fail", "error", "bug"]
 
-# Lightweight profanity pattern for the heuristic fallback (avoids LLM cost)
 _PROFANITY_RE = re.compile(
     r"\b(fuck|shit|ass|bitch|bastard|damn|crap|piss|dick|cunt|asshole)\b",
     re.IGNORECASE,
@@ -55,7 +54,6 @@ class SentimentAgent(BaseAgent):
     name = "sentiment_agent"
 
     async def _run(self, state: AgentState) -> AgentState:
-        # Always use translated English text — ensures non-English abuse is caught
         text = state.get("translated_text") or state.get("text", "")
         llm = get_llm()
 
@@ -79,20 +77,16 @@ class SentimentAgent(BaseAgent):
         state["is_abusive"] = bool(result.get("is_abusive", False))
         state["masked_text"] = result.get("masked_text")
 
-        # ── Two-tier moderation ───────────────────────────────────────────────
         toxicity = state["toxicity_score"]
         extreme_threshold = settings.TOXICITY_EXTREME_THRESHOLD
         soft_threshold = settings.TOXICITY_SOFT_THRESHOLD
 
         if toxicity >= extreme_threshold:
-            # Extreme: silently discard — no insights or ticket
             state["skip_processing"] = True
             state["moderation_action"] = "skipped"
         elif toxicity >= soft_threshold or state["is_abusive"]:
-            # Soft: mask but keep the review for insights extraction
             state["skip_processing"] = False
             state["moderation_action"] = "masked"
-            # If the LLM didn't provide a masked_text, do a local regex mask
             if not state.get("masked_text"):
                 state["masked_text"] = _mask_profanity(text)
         else:
@@ -116,9 +110,6 @@ class SentimentAgent(BaseAgent):
         state["moderation_action"] = "none"
 
         return state
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _heuristic_sentiment(text: str) -> dict:
     text_lower = text.lower()

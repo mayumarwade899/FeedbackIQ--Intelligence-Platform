@@ -14,7 +14,6 @@ from core.schemas import AgentState
 
 logger = logging.getLogger(__name__)
 
-# Languages we consider "English enough" to skip translation
 _ENGLISH_CODES = {"en", "english"}
 
 DETECT_PROMPT = """You are a language detection expert.
@@ -54,7 +53,6 @@ class TranslationAgent(BaseAgent):
 
         llm = get_llm()
 
-        # ── Step 1: Detect Language ──────────────────────────────────────────
         if llm.available:
             detect_result = await llm.generate_json(
                 DETECT_PROMPT,
@@ -80,9 +78,7 @@ class TranslationAgent(BaseAgent):
             state.get("raw_feedback_id", "unknown")
         )
 
-        # ── Step 2: Translate if not English ─────────────────────────────────
         if is_english or language_code in _ENGLISH_CODES:
-            # No translation needed — use original text
             state["translated_text"] = text
             return state
 
@@ -95,7 +91,6 @@ class TranslationAgent(BaseAgent):
             translated = translation.get("translated_text", text)
             state["_last_usage"] = translate_result.get("usage")
         else:
-            # Fallback: use original text if LLM unavailable
             translated = text
 
         state["translated_text"] = translated
@@ -116,7 +111,6 @@ class TranslationAgent(BaseAgent):
         
         state["language"] = detection.get("language", "en").lower()
         state["is_english"] = detection.get("is_english", True)
-        # Fallback: if we can't translate due to API errors, just use the original text
         state["translated_text"] = text
         
         return state
@@ -124,14 +118,10 @@ class TranslationAgent(BaseAgent):
 
 def _heuristic_detect(text: str) -> dict:
     """Simple heuristic fallback when LLM is unavailable."""
-    # Check for Arabic script
     if re.search(r'[\u0600-\u06FF]', text):
         return {"language": "ar", "language_name": "Arabic", "is_english": False, "confidence": 0.9}
-    # Check for CJK characters
     if re.search(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]', text):
         return {"language": "zh", "language_name": "Chinese/Japanese", "is_english": False, "confidence": 0.9}
-    # Check for Korean
     if re.search(r'[\uac00-\ud7af]', text):
         return {"language": "ko", "language_name": "Korean", "is_english": False, "confidence": 0.9}
-    # Default to English
     return {"language": "en", "language_name": "English", "is_english": True, "confidence": 0.7}

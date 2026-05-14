@@ -57,7 +57,6 @@ class BaseAgent(ABC):
                 updated_state = await self._run(state)
                 latency_ms = (time.monotonic() - start) * 1000
 
-                # Capture usage from state if agent provided it
                 usage = updated_state.pop("_last_usage", None) if isinstance(updated_state, dict) else None
 
                 trace.update({
@@ -73,7 +72,6 @@ class BaseAgent(ABC):
                     self.name, latency_ms, usage.get("total_tokens") if usage else 0
                 )
 
-                # Append trace to state
                 traces = updated_state.get("agent_traces", [])
                 traces.append(trace)
                 updated_state["agent_traces"] = traces
@@ -101,10 +99,8 @@ class BaseAgent(ABC):
                     traces.append(trace)
                     state["agent_traces"] = traces
                     
-                    # Apply heuristic fallback if available so pipeline doesn't break
                     state = self._fallback(state)
                     
-                    # Return state with error noted — don't crash the pipeline
                     return state
 
         return state

@@ -26,7 +26,6 @@ def configure_logging():
         ],
     )
 
-    # Suppress noisy third-party loggers
     for noisy in ["httpx", "httpcore", "urllib3", "asyncio"]:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 

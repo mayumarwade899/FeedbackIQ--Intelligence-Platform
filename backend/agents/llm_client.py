@@ -93,7 +93,6 @@ def _parse_json(text: str) -> Dict[str, Any]:
             raise ValueError(f"Could not parse LLM JSON: {exc}\nRaw: {text[:300]}")
 
 
-# Singleton instance
 _llm_client: Optional[LLMClient] = None
 
 

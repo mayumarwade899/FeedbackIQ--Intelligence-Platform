@@ -9,14 +9,8 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-# Ensure backend/ is on the path (also set in conftest, but explicit here for safety)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 1. Classification: Bug
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_classification_agent_bug(base_state):
     """Heuristic mode classifies 'app crashes on login' as Bug with High/Critical priority."""
@@ -35,10 +29,6 @@ async def test_classification_agent_bug(base_state):
     assert state["category"] == "Bug"
     assert state["priority"] in ("High", "Critical")
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 2. Classification: Spam
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_classification_agent_spam(base_state):
     """Heuristic mode classifies spam text correctly."""
@@ -57,10 +47,6 @@ async def test_classification_agent_spam(base_state):
     assert state["category"] == "Spam"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3. Classification: Feature Request
-# ─────────────────────────────────────────────────────────────────────────────
-@pytest.mark.asyncio
 async def test_classification_agent_feature_request(base_state):
     """Heuristic mode classifies feature-request phrasing correctly."""
     from agents.classification_agent import ClassificationAgent
@@ -78,9 +64,6 @@ async def test_classification_agent_feature_request(base_state):
     assert state["category"] == "Feature Request"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 4. Sentiment: Negative
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_sentiment_agent_negative(base_state):
     """Heuristic mode detects negative sentiment and a negative score."""
@@ -99,10 +82,6 @@ async def test_sentiment_agent_negative(base_state):
     assert state["sentiment"] == "negative"
     assert state["sentiment_score"] < 0
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 5. Sentiment: Positive
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_sentiment_agent_positive(base_state):
     """Heuristic mode detects positive sentiment and a positive score."""
@@ -121,10 +100,6 @@ async def test_sentiment_agent_positive(base_state):
     assert state["sentiment"] == "positive"
     assert state["sentiment_score"] > 0
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 6. Duplicate Detection: No Duplicates
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_duplicate_detection_no_duplicates(base_state):
     """When the DB returns no results, feedback is not flagged as duplicate.
@@ -143,10 +118,6 @@ async def test_duplicate_detection_no_duplicates(base_state):
     assert isinstance(state["embedding"], list)
     assert len(state["embedding"]) == 128
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 7. Duplicate Detection: Finds Duplicate
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_duplicate_detection_finds_duplicate(base_state):
     """When DB returns a similar embedding above the threshold, is_duplicate is True."""
@@ -166,9 +137,6 @@ async def test_duplicate_detection_finds_duplicate(base_state):
     assert state["duplicate_of_id"] is not None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 8. Insights Agent: Heuristic Fallback
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_insights_agent_heuristic_fallback(base_state):
     """With LLM unavailable, heuristic fallback produces non-empty impact_summary
@@ -191,10 +159,6 @@ async def test_insights_agent_heuristic_fallback(base_state):
     assert isinstance(state["suggested_resolution"], str)
     assert len(state["suggested_resolution"]) > 0
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 9. Ticket Generation: Produces Valid Title and Labels
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_ticket_generation_agent_produces_title(base_state):
     """With LLM unavailable, heuristic produces a valid ticket title (≤ 200 chars)
@@ -224,9 +188,6 @@ async def test_ticket_generation_agent_produces_title(base_state):
     assert len(state["ticket_labels"]) > 0
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 10. Base Agent: Retry on Failure
-# ─────────────────────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_base_agent_retry_on_failure(base_state):
     """A concrete agent that fails on attempts 1 and 2 succeeds on attempt 3.
@@ -239,7 +200,7 @@ async def test_base_agent_retry_on_failure(base_state):
     class FlakyAgent(BaseAgent):
         name = "flaky_test_agent"
         max_retries = 3
-        retry_delay = 0.0  # skip sleeps during tests
+        retry_delay = 0.0  
 
         async def _run(self, state: AgentState) -> AgentState:
             nonlocal call_count

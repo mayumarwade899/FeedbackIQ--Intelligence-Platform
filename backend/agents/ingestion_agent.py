@@ -68,8 +68,6 @@ async def _save(records: List[Dict]) -> int:
     return saved
 
 
-# ── GitHub Issues Ingestion ───────────────────────────────────────────────────
-
 async def ingest_github_issues(limit: int = 30) -> Dict[str, int]:
     if not settings.GITHUB_TOKEN or not settings.GITHUB_REPO_OWNER:
         logger.info("GitHub ingestion skipped — not configured")
@@ -94,7 +92,7 @@ async def ingest_github_issues(limit: int = 30) -> Dict[str, int]:
         records = []
         for issue in issues:
             if issue.get("pull_request"):
-                continue  # Skip PRs
+                continue 
             ext_id = _make_external_id("github", issue["id"])
             records.append({
                 "external_id": ext_id,
@@ -121,8 +119,6 @@ async def ingest_github_issues(limit: int = 30) -> Dict[str, int]:
         return {"fetched": 0, "new": 0, "error": str(exc)}
 
 
-# ── Reddit Ingestion ──────────────────────────────────────────────────────────
-
 async def ingest_reddit(subreddits: Optional[List[str]] = None, limit: int = 25) -> Dict[str, int]:
     if not settings.REDDIT_CLIENT_ID:
         logger.info("Reddit ingestion skipped — not configured")
@@ -133,7 +129,6 @@ async def ingest_reddit(subreddits: Optional[List[str]] = None, limit: int = 25)
     total_new = 0
 
     try:
-        # Get Reddit OAuth token
         async with httpx.AsyncClient(timeout=15) as client:
             token_resp = await client.post(
                 "https://www.reddit.com/api/v1/access_token",
@@ -191,8 +186,6 @@ async def ingest_reddit(subreddits: Optional[List[str]] = None, limit: int = 25)
     return {"fetched": total_fetched, "new": total_new}
 
 
-# ── Google Play Store Ingestion ───────────────────────────────────────────────
-
 async def ingest_google_play_reviews() -> Dict[str, int]:
     if not settings.GOOGLE_PLAY_APP_ID:
         logger.info("Google Play ingestion skipped — not configured")
@@ -205,7 +198,6 @@ async def ingest_google_play_reviews() -> Dict[str, int]:
         import asyncio
         from google_play_scraper import reviews, Sort
 
-        # google_play_scraper is synchronous — run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         result, _ = await loop.run_in_executor(
             None,
@@ -251,8 +243,6 @@ async def ingest_google_play_reviews() -> Dict[str, int]:
         return {"fetched": 0, "new": 0, "error": str(exc)}
 
 
-# ── Manual / API Ingestion ────────────────────────────────────────────────────
-
 async def ingest_manual(
     text: str,
     title: Optional[str] = None,
@@ -282,8 +272,6 @@ async def ingest_manual(
         return feedback
 
 
-# ── Pending Processor ─────────────────────────────────────────────────────────
-
 async def process_pending_feedback(batch_size: int = None) -> int:
     """
     Run the AI pipeline for any unprocessed feedback records.
@@ -298,12 +286,11 @@ async def process_pending_feedback(batch_size: int = None) -> int:
 
     logger.info("--- [Queue] Checking for pending feedback to process (batch_size=%d) ---", batch_size)
 
-    # 1. Fetch only the IDs first and close the session immediately
     from sqlalchemy import select
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(RawFeedback.id)
-            .where(RawFeedback.processed == False)  # noqa: E712
+            .where(RawFeedback.processed == False)
             .where(RawFeedback.processing_status == "pending")
             .limit(batch_size)
         )

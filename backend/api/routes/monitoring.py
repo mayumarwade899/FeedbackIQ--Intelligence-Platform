@@ -20,7 +20,6 @@ router = APIRouter()
 async def get_monitoring_metrics(db: AsyncSession = Depends(get_db)):
     since = datetime.utcnow() - timedelta(days=7)
 
-    # Per-agent success rates and latency
     agent_rows = await db.execute(
         select(
             AgentRun.agent_name,
@@ -54,7 +53,6 @@ async def get_monitoring_metrics(db: AsyncSession = Depends(get_db)):
     }
     agent_avg_latency = {name: agent_latency.get(name, 0.0) for name in agent_totals}
 
-    # Total / failed runs
     total_runs = (
         await db.execute(
             select(func.count(AgentRun.id)).where(AgentRun.started_at >= since)
@@ -71,7 +69,6 @@ async def get_monitoring_metrics(db: AsyncSession = Depends(get_db)):
 
     throughput = round(total_runs / 24, 2)
 
-    # Last ingestion
     last_ing = await db.execute(
         select(IngestionRun.completed_at)
         .where(IngestionRun.status == "completed")
@@ -80,7 +77,6 @@ async def get_monitoring_metrics(db: AsyncSession = Depends(get_db)):
     )
     last_ingestion = last_ing.scalar()
 
-    # Source breakdown
     src_rows = await db.execute(
         select(IngestionRun.source, func.sum(IngestionRun.items_new))
         .where(IngestionRun.started_at >= since)
@@ -88,7 +84,6 @@ async def get_monitoring_metrics(db: AsyncSession = Depends(get_db)):
     )
     ingestion_sources = {r[0]: int(r[1] or 0) for r in src_rows.fetchall()}
 
-    # Token usage & cost (24h)
     token_rows = await db.execute(
         select(AgentRun.tokens_used, AgentRun.output_data)
         .where(AgentRun.started_at >= since, AgentRun.tokens_used > 0)

@@ -24,7 +24,6 @@ from core.schemas import AgentState
 
 logger = logging.getLogger(__name__)
 
-# Common English stop-words to drop before embedding so they don't dominate similarity
 _STOP_WORDS = {
     "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
     "have", "has", "had", "do", "does", "did", "will", "would", "could",
@@ -47,15 +46,10 @@ def _normalise(text: str) -> str:
       6. Collapse whitespace
     """
     text = text.lower()
-    # Strip URLs
     text = re.sub(r"https?://\S+", " ", text)
-    # Strip mentions / hashtags
     text = re.sub(r"[@#]\w+", " ", text)
-    # Keep only alphanumeric + spaces
     text = re.sub(r"[^a-z0-9\s]", " ", text)
-    # Collapse repeated words (spam pattern: "crash crash crash")
     text = re.sub(r"\b(\w+)(\s+\1){2,}\b", r"\1", text)
-    # Remove stop-words
     tokens = [t for t in text.split() if t not in _STOP_WORDS and len(t) > 1]
     return " ".join(tokens)
 
@@ -96,16 +90,13 @@ class DuplicateDetectionAgent(BaseAgent):
         self._embedding_cache: Dict[str, List[float]] = {}
 
     async def _run(self, state: AgentState) -> AgentState:
-        # Always use translated text for cross-language dedup
         raw_text = state.get("translated_text") or state.get("text", "")
         raw_feedback_id = state.get("raw_feedback_id", "")
 
-        # Normalise before embedding
         normalised = _normalise(raw_text)
         embedding = _tfidf_embedding(normalised)
         state["embedding"] = embedding
 
-        # Query DB for the most similar existing item
         similar_id, score = await self._find_similar(embedding, exclude_id=raw_feedback_id)
 
         threshold = settings.SIMILARITY_THRESHOLD
@@ -120,7 +111,6 @@ class DuplicateDetectionAgent(BaseAgent):
                 "Duplicate detected: feedback=%s similar_to=%s score=%.3f",
                 raw_feedback_id, similar_id, score,
             )
-            # Increment cluster counter on the original record
             await self._increment_duplicate_count(similar_id)
         elif similar_id and score >= 0.4:
             logger.info(
@@ -152,7 +142,6 @@ class DuplicateDetectionAgent(BaseAgent):
 
             for row_id, stored_emb in rows:
                 if stored_emb and str(row_id) != exclude_id:
-                    # Pad/trim stored embeddings from the old 128-dim format to 256
                     if len(stored_emb) != len(embedding):
                         stored_emb = (stored_emb + [0.0] * 256)[:256]
                     score = _cosine_similarity(embedding, stored_emb)

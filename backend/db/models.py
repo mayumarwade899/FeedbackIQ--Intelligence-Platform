@@ -27,7 +27,7 @@ class RawFeedback(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     external_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    source: Mapped[str] = mapped_column(String(50), nullable=False)  # github, reddit, manual, api
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
     source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
@@ -35,9 +35,8 @@ class RawFeedback(Base):
     raw_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     processed: Mapped[bool] = mapped_column(Boolean, default=False)
-    processing_status: Mapped[str] = mapped_column(String(50), default="pending")  # pending, processing, done, failed
+    processing_status: Mapped[str] = mapped_column(String(50), default="pending")
 
-    # Relationships
     processed_feedback: Mapped[Optional["ProcessedFeedback"]] = relationship(back_populates="raw")
     processing_runs: Mapped[list["AgentRun"]] = relationship(back_populates="raw_feedback")
 
@@ -55,37 +54,31 @@ class ProcessedFeedback(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     raw_id: Mapped[str] = mapped_column(String(36), ForeignKey("raw_feedback.id"), unique=True)
 
-    # Classification
-    category: Mapped[str] = mapped_column(String(50))  # Bug, Feature, Complaint, Praise, Spam
+    category: Mapped[str] = mapped_column(String(50))
     confidence: Mapped[float] = mapped_column(Float)
-    priority: Mapped[str] = mapped_column(String(20))  # Critical, High, Medium, Low
+    priority: Mapped[str] = mapped_column(String(20))
 
-    # Sentiment & Toxicity
-    sentiment: Mapped[str] = mapped_column(String(20))  # positive, negative, neutral
+    sentiment: Mapped[str] = mapped_column(String(20))
     sentiment_score: Mapped[float] = mapped_column(Float, default=0.0)
     emotion_tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     emotion_intensity: Mapped[float] = mapped_column(Float, default=0.0)
     toxicity_score: Mapped[float] = mapped_column(Float, default=0.0)
     is_abusive: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Multilingual support
     language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     translated_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Duplicate detection
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
     duplicate_of_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("processed_feedback.id"), nullable=True)
     similarity_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     embedding: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
-    # Insights
     impact_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     suggested_resolution: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     technical_details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     key_phrases: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
-    # Human review
-    review_status: Mapped[str] = mapped_column(String(30), default="pending")  # pending, approved, rejected, modified
+    review_status: Mapped[str] = mapped_column(String(30), default="pending")
     reviewed_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     reviewer_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -93,7 +86,6 @@ class ProcessedFeedback(Base):
     processed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     agent_version: Mapped[str] = mapped_column(String(20), default="2.0.0")
 
-    # Relationships
     raw: Mapped["RawFeedback"] = relationship(back_populates="processed_feedback")
     ticket: Mapped[Optional["Ticket"]] = relationship(back_populates="feedback")
     duplicate_of: Mapped[Optional["ProcessedFeedback"]] = relationship(
@@ -120,12 +112,11 @@ class Ticket(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(String(50))
     priority: Mapped[str] = mapped_column(String(20))
-    status: Mapped[str] = mapped_column(String(30), default="open")  # open, in_progress, resolved, closed
+    status: Mapped[str] = mapped_column(String(30), default="open")
     impact_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     suggested_resolution: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     labels: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
-    # GitHub integration
     github_issue_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     github_issue_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     github_synced: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -133,7 +124,6 @@ class Ticket(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     feedback: Mapped["ProcessedFeedback"] = relationship(back_populates="ticket")
 
     __table_args__ = (
@@ -142,7 +132,6 @@ class Ticket(Base):
         Index("ix_tickets_category", "category"),
     )
 
-
 class AgentRun(Base):
     """Tracks execution of each agent for monitoring/observability."""
     __tablename__ = "agent_runs"
@@ -150,7 +139,7 @@ class AgentRun(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     raw_feedback_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("raw_feedback.id"), nullable=True)
     agent_name: Mapped[str] = mapped_column(String(100))
-    status: Mapped[str] = mapped_column(String(20))  # success, failed, skipped
+    status: Mapped[str] = mapped_column(String(20))
     latency_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     tokens_used: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -160,7 +149,6 @@ class AgentRun(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
-    # Relationships
     raw_feedback: Mapped[Optional["RawFeedback"]] = relationship(back_populates="processing_runs")
 
     __table_args__ = (
@@ -176,7 +164,7 @@ class IngestionRun(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     source: Mapped[str] = mapped_column(String(50))
-    status: Mapped[str] = mapped_column(String(20))  # running, completed, failed
+    status: Mapped[str] = mapped_column(String(20))
     items_fetched: Mapped[int] = mapped_column(Integer, default=0)
     items_new: Mapped[int] = mapped_column(Integer, default=0)
     items_skipped: Mapped[int] = mapped_column(Integer, default=0)

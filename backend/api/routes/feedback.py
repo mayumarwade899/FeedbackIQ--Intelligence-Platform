@@ -33,7 +33,6 @@ async def submit_feedback(
         metadata=payload.metadata,
     )
 
-    # Trigger processing in background
     async def _process():
         from agents.orchestrator import get_orchestrator
         try:
@@ -55,7 +54,6 @@ async def submit_feedback(
         processed=feedback.processed,
         processing_status=feedback.processing_status,
     )
-
 
 @router.get("/raw", response_model=List[FeedbackResponse])
 async def list_raw_feedback(
@@ -98,14 +96,12 @@ async def list_processed_feedback(
     """List processed feedback with full enrichment data."""
     from core.schemas import PaginatedResponse
     
-    # Base query for items
     q = (
         select(ProcessedFeedback)
         .options(selectinload(ProcessedFeedback.raw))
         .order_by(ProcessedFeedback.processed_at.desc())
     )
     
-    # Base query for count
     count_q = select(func.count()).select_from(ProcessedFeedback)
 
     if category:
@@ -171,7 +167,6 @@ async def review_feedback(
     feedback.reviewed_at = datetime.utcnow()
     feedback.reviewer_notes = notes
 
-    # Apply manual overrides when reviewer modifies the classification
     VALID_CATEGORIES = {"Bug", "Feature Request", "Complaint", "Praise", "Spam", "Question"}
     VALID_PRIORITIES = {"Critical", "High", "Medium", "Low"}
     VALID_SENTIMENTS = {"positive", "negative", "neutral", "mixed"}

@@ -14,8 +14,6 @@ def _last(current, new):
     return new if new is not None else current
 
 
-# ── Agent Pipeline State ──────────────────────────────────────────────────────
-
 class AgentState(TypedDict, total=False):
     """Shared state flowing through the LangGraph agent pipeline.
 
@@ -28,18 +26,15 @@ class AgentState(TypedDict, total=False):
     title: Annotated[Optional[str], _last]
     metadata: Annotated[Dict[str, Any], _last]
 
-    # Multilingual support
     language: Annotated[str, _last]
     translated_text: Annotated[Optional[str], _last]
     is_english: Annotated[bool, _last]
 
-    # Classification
     category: Annotated[str, _last]
     priority: Annotated[str, _last]
     confidence: Annotated[float, _last]
     classification_rationale: Annotated[str, _last]
 
-    # Sentiment & Toxicity
     sentiment: Annotated[str, _last]
     sentiment_score: Annotated[float, _last]
     emotion_tags: Annotated[List[str], operator.add]
@@ -48,40 +43,30 @@ class AgentState(TypedDict, total=False):
     is_abusive: Annotated[bool, _last]
     masked_text: Annotated[Optional[str], _last]
 
-    # Duplicate detection
     is_duplicate: Annotated[bool, _last]
     duplicate_of_id: Annotated[Optional[str], _last]
     similarity_score: Annotated[Optional[float], _last]
     embedding: Annotated[Optional[List[float]], _last]
 
-    # Insights
     impact_summary: Annotated[str, _last]
     suggested_resolution: Annotated[str, _last]
     key_phrases: Annotated[List[str], operator.add]
     technical_details: Annotated[Dict[str, Any], _last]
 
-    # Generated ticket
     ticket_title: Annotated[str, _last]
     ticket_description: Annotated[str, _last]
     ticket_labels: Annotated[List[str], operator.add]
 
-    # Moderation gate (set by SentimentAgent)
-    # skip_processing=True → orchestrator exits after sentiment, no insights/ticket
     skip_processing: Annotated[bool, _last]
-    moderation_action: Annotated[str, _last]   # "none" | "masked" | "skipped"
+    moderation_action: Annotated[str, _last]
 
-    # Duplicate cluster count — incremented on the representative record each time
-    # a semantic duplicate is detected, so the UI shows "N similar reports"
     duplicate_count: Annotated[int, _last]
 
-    # Pipeline tracking
     errors: Annotated[List[str], operator.add]
     agent_traces: Annotated[List[Dict[str, Any]], operator.add]
     processing_start: Annotated[float, _last]
     _last_usage: Annotated[Optional[Any], _last]
 
-
-# ── API Request/Response Schemas ──────────────────────────────────────────────
 
 class FeedbackSubmit(BaseModel):
     text: str = Field(..., min_length=5, max_length=10000)
@@ -131,7 +116,6 @@ class ProcessedFeedbackResponse(BaseModel):
     reviewer_notes: Optional[str]
     processed_at: datetime
 
-    # Nested raw feedback
     raw: Optional[FeedbackResponse] = None
 
     class Config:
@@ -170,7 +154,7 @@ class TicketUpdate(BaseModel):
 
 
 class ReviewDecision(BaseModel):
-    action: str  # approve, reject, modify
+    action: str
     reviewer: str
     notes: Optional[str] = None
     modified_category: Optional[str] = None

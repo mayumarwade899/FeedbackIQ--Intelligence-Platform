@@ -85,7 +85,6 @@ class FeedbackOrchestrator:
     def _build_graph(self) -> StateGraph:
         g = StateGraph(AgentState)
 
-        # ── Nodes ────────────────────────────────────────────────────────────
         g.add_node("translate",  self._translate)
         g.add_node("classify",   self._classify)
         g.add_node("sentiment",  self._sentiment)
@@ -93,12 +92,9 @@ class FeedbackOrchestrator:
         g.add_node("insights",   self._insights)
         g.add_node("ticket",     self._ticket)
 
-        # ── Entry ─────────────────────────────────────────────────────────────
-        # Step 1: Translate first so every downstream agent works in English
         g.set_entry_point("translate")
         g.add_edge("translate", "classify")
 
-        # ── Step 2: Spam gate ─────────────────────────────────────────────────
         g.add_conditional_edges(
             "classify",
             _route_after_classification,
@@ -108,8 +104,6 @@ class FeedbackOrchestrator:
             },
         )
 
-        # ── Step 3: Sentiment + two-tier toxicity gate ────────────────────────
-        # Sentiment runs on translated text; extreme toxic → END immediately.
         g.add_conditional_edges(
             "sentiment",
             _route_after_toxicity,
@@ -119,8 +113,6 @@ class FeedbackOrchestrator:
             },
         )
 
-        # ── Step 4: Duplicate gate ─────────────────────────────────────────────
-        # If duplicate → the cluster counter was bumped; skip insights/ticket.
         g.add_conditional_edges(
             "duplicate",
             _route_after_duplicate,
@@ -130,13 +122,10 @@ class FeedbackOrchestrator:
             },
         )
 
-        # ── Steps 5–6: Insights → Ticket ──────────────────────────────────────
         g.add_edge("insights", "ticket")
         g.add_edge("ticket", END)
 
         return g
-
-    # ── Node wrappers ─────────────────────────────────────────────────────────
 
     async def _translate(self, state: AgentState) -> AgentState:
         logger.info("--- [Pipeline] Translation | id=%s ---", state["raw_feedback_id"])
@@ -182,14 +171,11 @@ class FeedbackOrchestrator:
         logger.info("--- [Pipeline] Ticket done | title=%s ---", res.get("ticket_title", "")[:60])
         return res
 
-    # ── Public API ────────────────────────────────────────────────────────────
-
     async def process_by_id(self, fb_id: str) -> AgentState:
         """
         Fetch record by ID in a fresh session and process it.
         Avoids session conflicts in parallel batches.
         """
-        # Load raw data then immediately close the session
         async with AsyncSessionLocal() as session:
             res = await session.execute(select(RawFeedback).where(RawFeedback.id == fb_id))
             raw = res.scalar_one_or_none()
@@ -289,10 +275,6 @@ class FeedbackOrchestrator:
             s.add(processed)
             await s.flush()
 
-            # Only generate ticket if:
-            #   1. Not a duplicate (cluster already has a ticket)
-            #   2. Not an extreme-toxic skip
-            #   3. Ticket title was actually produced
             skip = state.get("skip_processing", False)
             is_dup = state.get("is_duplicate", False)
             if not is_dup and not skip and state.get("ticket_title"):
@@ -364,8 +346,6 @@ class FeedbackOrchestrator:
                 await _do_mark(s)
                 await s.commit()
 
-
-# ── Singleton ─────────────────────────────────────────────────────────────────
 _orchestrator: FeedbackOrchestrator | None = None
 
 

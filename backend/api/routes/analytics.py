@@ -21,10 +21,8 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
     now = datetime.utcnow()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Total feedback (only completed ones)
     total = (await db.execute(select(func.count(RawFeedback.id)).where(RawFeedback.processed == True))).scalar() or 0
 
-    # Processed today
     processed_today = (
         await db.execute(
             select(func.count(ProcessedFeedback.id)).where(
@@ -33,7 +31,6 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
         )
     ).scalar() or 0
 
-    # Pending review
     pending_review = (
         await db.execute(
             select(func.count(ProcessedFeedback.id)).where(
@@ -42,19 +39,16 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
         )
     ).scalar() or 0
 
-    # Open tickets
     open_tickets = (
         await db.execute(
             select(func.count(Ticket.id)).where(Ticket.status == "open")
         )
     ).scalar() or 0
 
-    # Avg confidence
     avg_conf = (
         await db.execute(select(func.avg(ProcessedFeedback.confidence)))
     ).scalar() or 0.0
 
-    # Category distribution
     cat_rows = await db.execute(
         select(ProcessedFeedback.category, func.count(ProcessedFeedback.id)).group_by(
             ProcessedFeedback.category
@@ -62,7 +56,6 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
     )
     category_dist = {r[0]: r[1] for r in cat_rows.fetchall()}
 
-    # Priority distribution
     pri_rows = await db.execute(
         select(ProcessedFeedback.priority, func.count(ProcessedFeedback.id)).group_by(
             ProcessedFeedback.priority
@@ -70,7 +63,6 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
     )
     priority_dist = {r[0]: r[1] for r in pri_rows.fetchall()}
 
-    # Sentiment distribution
     sent_rows = await db.execute(
         select(ProcessedFeedback.sentiment, func.count(ProcessedFeedback.id)).group_by(
             ProcessedFeedback.sentiment
@@ -78,13 +70,11 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
     )
     sentiment_dist = {r[0]: r[1] for r in sent_rows.fetchall()}
 
-    # Source distribution
     src_rows = await db.execute(
         select(RawFeedback.source, func.count(RawFeedback.id)).group_by(RawFeedback.source)
     )
     source_dist = {r[0]: r[1] for r in src_rows.fetchall()}
 
-    # Processing success rate (last 24h)
     since = now - timedelta(days=7)
     total_runs = (
         await db.execute(
@@ -100,14 +90,12 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
     ).scalar() or 0
     success_rate = round(success_runs / max(total_runs, 1), 3)
 
-    # Avg agent latency
     avg_lat = (
         await db.execute(
             select(func.avg(AgentRun.latency_ms)).where(AgentRun.started_at >= since)
         )
     ).scalar() or 0.0
 
-    # Token usage & cost
     token_stats = await db.execute(
         select(AgentRun.tokens_used, AgentRun.output_data).where(AgentRun.tokens_used > 0)
     )
@@ -118,9 +106,7 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
         tokens = row[0] or 0
         total_tokens += tokens
         
-        # Calculate cost breakdown
         usage = row[1] or {}
-        # Since we just started storing JSON, older records might not have prompt_tokens
         prompt_tokens = usage.get("prompt_tokens", tokens * 0.8)
         comp_tokens = usage.get("completion_tokens", tokens * 0.2)
         
@@ -153,7 +139,6 @@ async def get_trends(
     """Daily trend data grouped by category/sentiment/priority."""
     since = datetime.utcnow() - timedelta(days=days)
 
-    # Build date-truncated query
     date_col = func.date_trunc("day", ProcessedFeedback.processed_at).label("day")
     group_col = getattr(ProcessedFeedback, group_by)
 
@@ -203,7 +188,7 @@ async def get_duplicates(
     RawA = aliased(RawFeedback)
     
     base_cond = (
-        (ProcessedFeedback.is_duplicate == True) |  # noqa: E712
+        (ProcessedFeedback.is_duplicate == True) |
         (ProcessedFeedback.similarity_score >= 0.6)
     )
 
@@ -218,17 +203,14 @@ async def get_duplicates(
     )
     dupes = rows.scalars().all()
 
-    # Fetch the raw text for each dupe and its original
     result = []
     for d in dupes:
-        # Get text for this item
         raw_row = await db.execute(
             select(RawFeedback.title, RawFeedback.body).where(RawFeedback.id == d.raw_id)
         )
         raw = raw_row.first()
         this_text = (raw.title or raw.body or "")[:100] if raw else ""
 
-        # Get text for the original it duplicates (if any)
         orig_text = None
         if d.duplicate_of_id:
             orig_pf = await db.execute(

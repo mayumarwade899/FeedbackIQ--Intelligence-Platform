@@ -44,15 +44,15 @@ class TicketGenerationAgent(BaseAgent):
         sentiment = state.get("sentiment", "neutral")
 
         context = f"""
-Category: {category}
-Priority: {priority}
-Sentiment: {sentiment}
-Original Title: {title}
-Feedback: {text}
-Impact Summary: {impact}
-Suggested Resolution: {resolution}
-Technical Details: {technical}
-"""
+            Category: {category}
+            Priority: {priority}
+            Sentiment: {sentiment}
+            Original Title: {title}
+            Feedback: {text}
+            Impact Summary: {impact}
+            Suggested Resolution: {resolution}
+            Technical Details: {technical}
+        """
         llm = get_llm()
 
         usage = None

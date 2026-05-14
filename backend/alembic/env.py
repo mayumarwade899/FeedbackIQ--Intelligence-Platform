@@ -10,8 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from core.config import settings
 from db.database import Base
 
-# Import all models to register with metadata
-import db.models  # noqa: F401
+import db.models
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

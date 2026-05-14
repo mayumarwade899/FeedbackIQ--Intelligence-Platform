@@ -54,7 +54,6 @@ class ClassificationAgent(BaseAgent):
     async def _run(self, state: AgentState) -> AgentState:
         text = state.get("text", "")
         title = state.get("title", "")
-        # Always prefer translated text for classification so non-English works correctly
         effective_text = state.get("translated_text") or text
         full_text = f"Title: {title}\n\n{effective_text}" if title else effective_text
 
@@ -69,7 +68,6 @@ class ClassificationAgent(BaseAgent):
         else:
             result = _heuristic_classify(full_text)
 
-        # ── Validate and fallback for every field ─────────────────────────────
         category = result.get("category", "")
         if category not in CATEGORIES:
             category = _heuristic_classify(full_text)["category"]
@@ -83,7 +81,6 @@ class ClassificationAgent(BaseAgent):
             confidence = float(raw_confidence)
         except (TypeError, ValueError):
             confidence = 0.5
-        # Clamp to [0, 1]
         confidence = max(0.0, min(1.0, confidence))
 
         state["_last_usage"] = usage

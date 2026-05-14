@@ -33,7 +33,6 @@ class InsightsAgent(BaseAgent):
     name = "insights_agent"
 
     async def _run(self, state: AgentState) -> AgentState:
-        # Use masked text if available (to ignore abuse), then translated text, then raw text
         text = state.get("masked_text") or state.get("translated_text") or state.get("text", "")
         title = state.get("title", "")
         category = state.get("category", "")
